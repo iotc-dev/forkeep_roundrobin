@@ -1,6 +1,9 @@
-import { kv } from '@vercel/kv';
+import { redis } from '../lib/redis';
 
-// Import the same team configuration
+// ==============================
+// TEAM CONFIGURATION
+// (must match assign.js)
+// ==============================
 const TEAMS = {
   'sales-team': {
     name: 'Sales Team',
@@ -10,55 +13,62 @@ const TEAMS = {
       { id: '361908743', name: 'Dev Account', active: true }
     ]
   }
-  // Add more teams as needed
 };
 
 export default async function handler(req, res) {
-  // Only allow GET requests
+  // Enforce GET
   if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed', message: 'Use GET method' });
+    return res.status(405).json({
+      error: 'Method not allowed',
+      message: 'Use GET'
+    });
   }
 
   try {
     const teamsData = {};
 
-    // Process each team
+    // ==============================
+    // PROCESS EACH TEAM
+    // ==============================
     for (const [teamKey, teamConfig] of Object.entries(TEAMS)) {
-      const activeMembers = teamConfig.members.filter(m => m.active);
-      
-      // Get last assigned from Redis
-      const lastAssignedKey = `last-assigned:${teamKey}`;
-      const lastAssignedId = await kv.get(lastAssignedKey);
-      
-      // Get total assignments count
-      const countKey = `total-count:${teamKey}`;
-      const totalAssignments = await kv.get(countKey) || 0;
+      const activeMembers = teamConfig.members.filter(m => m.active === true);
 
-      // Find last assigned member
+      // Redis keys
+      const lastAssignedKey = `last-assigned:${teamKey}`;
+      const countKey = `total-count:${teamKey}`;
+
+      // Fetch Redis state
+      const lastAssignedId = await redis.get(lastAssignedKey);
+      const totalAssignments = Number(await redis.get(countKey)) || 0;
+
+      // Determine last assigned member
       let lastAssignedMember = null;
+      if (lastAssignedId) {
+        lastAssignedMember = activeMembers.find(
+          m => String(m.id) === String(lastAssignedId)
+        ) || null;
+      }
+
+      // Determine next owner
       let nextOwner = null;
       let nextOwnerId = null;
 
-      if (lastAssignedId) {
-        lastAssignedMember = activeMembers.find(m => m.id === lastAssignedId);
-        
+      if (activeMembers.length > 0) {
         if (lastAssignedMember) {
-          const lastPosition = activeMembers.findIndex(m => m.id === lastAssignedId);
+          const lastPosition = activeMembers.findIndex(
+            m => String(m.id) === String(lastAssignedId)
+          );
           const nextIndex = (lastPosition + 1) % activeMembers.length;
-          const nextMember = activeMembers[nextIndex];
-          nextOwner = nextMember.name;
-          nextOwnerId = nextMember.id;
-        } else if (activeMembers.length > 0) {
-          // Last assigned person is no longer active, will start from beginning
+          nextOwner = activeMembers[nextIndex].name;
+          nextOwnerId = activeMembers[nextIndex].id;
+        } else {
+          // Either no assignments yet or last assigned is inactive
           nextOwner = activeMembers[0].name;
           nextOwnerId = activeMembers[0].id;
         }
-      } else if (activeMembers.length > 0) {
-        // No assignments yet, will start with first active member
-        nextOwner = activeMembers[0].name;
-        nextOwnerId = activeMembers[0].id;
       }
 
+      // Build response object
       teamsData[teamKey] = {
         name: teamConfig.name,
         members: teamConfig.members,
@@ -68,17 +78,21 @@ export default async function handler(req, res) {
         lastAssignedId: lastAssignedId || null,
         nextOwner,
         nextOwnerId,
-        totalAssignments: Number(totalAssignments)
+        totalAssignments
       };
     }
 
+    // ==============================
+    // RESPONSE
+    // ==============================
     return res.status(200).json({
       teams: teamsData,
       timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('Teams endpoint error:', error);
+    console.error('❌ Teams endpoint failed:', error);
+
     return res.status(500).json({
       error: 'Internal server error',
       message: error.message

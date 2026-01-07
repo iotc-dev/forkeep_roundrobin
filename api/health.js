@@ -1,10 +1,13 @@
-import { kv } from '@vercel/kv';
 import { Client } from '@hubspot/api-client';
+import { redis } from '../lib/redis';
 
 export default async function handler(req, res) {
-  // Only allow GET requests
+  // Enforce GET
   if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed', message: 'Use GET method' });
+    return res.status(405).json({
+      error: 'Method not allowed',
+      message: 'Use GET'
+    });
   }
 
   const health = {
@@ -13,13 +16,16 @@ export default async function handler(req, res) {
     checks: {}
   };
 
-  // Check Redis/Vercel KV connection
+  // ==============================
+  // REDIS (UPSTASH) CHECK
+  // ==============================
   try {
-    await kv.set('health-check', Date.now());
-    const value = await kv.get('health-check');
+    await redis.set('health-check', Date.now());
+    await redis.get('health-check');
+
     health.checks.redis = {
       status: 'connected',
-      message: 'Redis connection successful'
+      message: 'Upstash Redis connection successful'
     };
   } catch (error) {
     health.status = 'degraded';
@@ -29,17 +35,21 @@ export default async function handler(req, res) {
     };
   }
 
-  // Check HubSpot API credentials
+  // ==============================
+  // HUBSPOT API CHECK
+  // ==============================
   try {
     if (!process.env.HUBSPOT_ACCESS_TOKEN) {
       throw new Error('HUBSPOT_ACCESS_TOKEN not configured');
     }
 
-    const hubspotClient = new Client({ accessToken: process.env.HUBSPOT_ACCESS_TOKEN });
-    
-    // Make a simple API call to verify authentication
-    await hubspotClient.crm.owners.getAll();
-    
+    const hubspotClient = new Client({
+      accessToken: process.env.HUBSPOT_ACCESS_TOKEN
+    });
+
+    // Simple, safe call to verify auth + connectivity
+    await hubspotClient.crm.objects.basicApi.getPage('contacts', 1);
+
     health.checks.hubspot = {
       status: 'authenticated',
       message: 'HubSpot API connection successful'
@@ -49,14 +59,23 @@ export default async function handler(req, res) {
     health.checks.hubspot = {
       status: 'failed',
       message: error.message,
-      hint: 'Check HUBSPOT_ACCESS_TOKEN environment variable'
+      hint: 'Check HUBSPOT_ACCESS_TOKEN and permissions'
     };
   }
 
-  // Check environment variables
-  const requiredEnvVars = ['HUBSPOT_ACCESS_TOKEN'];
-  const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
-  
+  // ==============================
+  // ENVIRONMENT CHECK
+  // ==============================
+  const requiredEnvVars = [
+    'HUBSPOT_ACCESS_TOKEN',
+    'UPSTASH_REDIS_REST_URL',
+    'UPSTASH_REDIS_REST_TOKEN'
+  ];
+
+  const missingEnvVars = requiredEnvVars.filter(
+    name => !process.env[name]
+  );
+
   if (missingEnvVars.length > 0) {
     health.status = 'degraded';
     health.checks.environment = {
