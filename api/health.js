@@ -37,7 +37,7 @@ export default async function handler(req, res) {
   }
 
   // ==============================
-  // HUBSPOT API CHECK
+  // HUBSPOT API CHECK (SIMPLIFIED)
   // ==============================
   try {
     if (!process.env.HUBSPOT_ACCESS_TOKEN) {
@@ -48,8 +48,20 @@ export default async function handler(req, res) {
       accessToken: process.env.HUBSPOT_ACCESS_TOKEN
     });
 
-    // Simple, safe call to verify auth + connectivity
-    await hubspotClient.crm.objects.basicApi.getPage('contacts', 1);
+    // Simple API call that doesn't load complex models
+    // Just verify the token works by calling account info
+    const response = await fetch(
+      'https://api.hubapi.com/account-info/v3/api-usage/daily',
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.HUBSPOT_ACCESS_TOKEN}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HubSpot API returned ${response.status}`);
+    }
 
     health.checks.hubspot = {
       status: 'authenticated',
