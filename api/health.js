@@ -1,4 +1,3 @@
-import { Client } from '@hubspot/api-client';
 import { redis } from '../lib/redis.js';
 
 
@@ -37,21 +36,26 @@ export default async function handler(req, res) {
   }
 
   // ==============================
-  // HUBSPOT API CHECK
+  // HUBSPOT API CHECK (DIRECT API)
   // ==============================
   try {
     if (!process.env.HUBSPOT_ACCESS_TOKEN) {
       throw new Error('HUBSPOT_ACCESS_TOKEN not configured');
     }
 
-    const hubspotClient = new Client({
-      accessToken: process.env.HUBSPOT_ACCESS_TOKEN
-    });
+    // Use direct API call to check HubSpot connectivity
+    const response = await fetch(
+      'https://api.hubapi.com/crm/v3/properties/contacts?limit=1',
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.HUBSPOT_ACCESS_TOKEN}`
+        }
+      }
+    );
 
-    // Use the most basic endpoint available on all HubSpot accounts
-    // GET /crm/v3/properties/contacts - Lists contact properties
-    // This endpoint is universally available and requires minimal permissions
-    await hubspotClient.crm.properties.coreApi.getAll('contacts', false);
+    if (!response.ok) {
+      throw new Error(`HubSpot API returned ${response.status}`);
+    }
 
     health.checks.hubspot = {
       status: 'authenticated',
