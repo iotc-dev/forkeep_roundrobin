@@ -1,5 +1,6 @@
 import { Client } from '@hubspot/api-client';
-import { redis } from '../lib/redis';
+import { redis } from '../lib/redis.js';
+
 
 export default async function handler(req, res) {
   // Enforce GET

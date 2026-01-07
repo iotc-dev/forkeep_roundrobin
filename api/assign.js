@@ -1,5 +1,6 @@
 import { Client } from '@hubspot/api-client';
-import { redis } from '../lib/redis';
+import { redis } from '../lib/redis.js';
+
 
 // ==============================
 // TEAM CONFIGURATION
