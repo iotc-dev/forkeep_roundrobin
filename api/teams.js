@@ -2,22 +2,15 @@ import { kv } from '@vercel/kv';
 
 // Import the same team configuration
 const TEAMS = {
-  'sales-under-799': {
-    name: 'Sales - Under $799',
+  'sales-team': {
+    name: 'Sales Team',
     members: [
-      { id: '246802831', name: 'Sarah', active: true },
-      { id: '246802832', name: 'Mike', active: true },
-      { id: '246802833', name: 'Jessica', active: true },
-      { id: '246802844', name: 'Tom', active: true }
-    ]
-  },
-  'sales-mid-range': {
-    name: 'Sales - $800-$1499',
-    members: [
-      { id: '246802834', name: 'David', active: true },
-      { id: '246802835', name: 'Emily', active: true }
+      { id: '77614604', name: 'Josiah Dalisay (Main)', active: true },
+      { id: '75746033', name: 'Josiah Dalisay (Alt)', active: true },
+      { id: '361908743', name: 'Dev Account', active: true }
     ]
   }
+  // Add more teams as needed
 };
 
 export default async function handler(req, res) {
