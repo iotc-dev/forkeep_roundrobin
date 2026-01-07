@@ -37,7 +37,7 @@ export default async function handler(req, res) {
   }
 
   // ==============================
-  // HUBSPOT API CHECK (SIMPLIFIED)
+  // HUBSPOT API CHECK
   // ==============================
   try {
     if (!process.env.HUBSPOT_ACCESS_TOKEN) {
@@ -48,20 +48,10 @@ export default async function handler(req, res) {
       accessToken: process.env.HUBSPOT_ACCESS_TOKEN
     });
 
-    // Simple API call that doesn't load complex models
-    // Just verify the token works by calling account info
-    const response = await fetch(
-      'https://api.hubapi.com/account-info/v3/api-usage/daily',
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.HUBSPOT_ACCESS_TOKEN}`
-        }
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`HubSpot API returned ${response.status}`);
-    }
+    // Use the most basic endpoint available on all HubSpot accounts
+    // GET /crm/v3/properties/contacts - Lists contact properties
+    // This endpoint is universally available and requires minimal permissions
+    await hubspotClient.crm.properties.coreApi.getAll('contacts', false);
 
     health.checks.hubspot = {
       status: 'authenticated',
