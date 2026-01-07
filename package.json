@@ -17,7 +17,6 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@hubspot/api-client": "11.2.0",
     "@upstash/redis": "^1.36.0"
   },
   "engines": {

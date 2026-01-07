@@ -1,14 +1,6 @@
-import { Client } from '@hubspot/api-client';
 import { redis } from '../lib/redis.js';
 import { TEAMS } from '../lib/teams-config.js';
 
-
-// ==============================
-// HUBSPOT CLIENT
-// ==============================
-const hubspotClient = new Client({
-  accessToken: process.env.HUBSPOT_ACCESS_TOKEN
-});
 
 // ==============================
 // ASSIGNMENT HANDLER
@@ -113,13 +105,28 @@ export default async function handler(req, res) {
     );
 
     // ------------------------------
-    // HUBSPOT UPDATE
+    // HUBSPOT UPDATE (DIRECT API CALL)
     // ------------------------------
-    await hubspotClient.crm.contacts.basicApi.update(contactId, {
-      properties: {
-        hubspot_owner_id: nextOwner.id
+    const hubspotResponse = await fetch(
+      `https://api.hubapi.com/crm/v3/objects/contacts/${contactId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${process.env.HUBSPOT_ACCESS_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          properties: {
+            hubspot_owner_id: nextOwner.id
+          }
+        })
       }
-    });
+    );
+
+    if (!hubspotResponse.ok) {
+      const errorText = await hubspotResponse.text();
+      throw new Error(`HubSpot API error (${hubspotResponse.status}): ${errorText}`);
+    }
 
     console.log(
       `[${teamKey}] ✓ Contact ${contactId} updated in HubSpot`
@@ -136,11 +143,11 @@ export default async function handler(req, res) {
     const countKey = `total-count:${teamKey}`;
     const totalAssignments = await redis.incr(countKey);
 
-    // 3. Increment member count (NEW!)
+    // 3. Increment member count
     const memberCountKey = `member-count:${teamKey}:${nextOwner.id}`;
     const memberAssignments = await redis.incr(memberCountKey);
 
-    // 4. Increment global total (NEW!)
+    // 4. Increment global total
     const globalTotal = await redis.incr('total-count:global');
 
     console.log(
@@ -160,9 +167,9 @@ export default async function handler(req, res) {
       activeMembers: activeMembers.length,
       totalMembers: team.members.length,
       stats: {
-        memberAssignments,      // New: This member's total
-        teamAssignments: totalAssignments,  // Team total
-        globalAssignments: globalTotal      // Global total
+        memberAssignments,
+        teamAssignments: totalAssignments,
+        globalAssignments: globalTotal
       },
       timestamp: new Date().toISOString()
     });
