@@ -1,6 +1,6 @@
 import { Client } from '@hubspot/api-client';
 import { redis } from '../lib/redis.js';
-import { TEAMS } from '../lib/teams-config.js';  // ← IMPORT SHARED CONFIG
+import { TEAMS } from '../lib/teams-config.js';
 
 
 // ==============================
@@ -126,15 +126,25 @@ export default async function handler(req, res) {
     );
 
     // ------------------------------
-    // REDIS: SAVE STATE
+    // REDIS: SAVE STATE & TRACK METRICS
     // ------------------------------
+    
+    // 1. Save who was assigned (for round-robin)
     await redis.set(lastAssignedKey, nextOwner.id);
 
+    // 2. Increment team total
     const countKey = `total-count:${teamKey}`;
     const totalAssignments = await redis.incr(countKey);
 
+    // 3. Increment member count (NEW!)
+    const memberCountKey = `member-count:${teamKey}:${nextOwner.id}`;
+    const memberAssignments = await redis.incr(memberCountKey);
+
+    // 4. Increment global total (NEW!)
+    const globalTotal = await redis.incr('total-count:global');
+
     console.log(
-      `[${teamKey}] ✓ Redis updated | total assignments: ${totalAssignments}`
+      `[${teamKey}] ✓ Redis updated | team: ${totalAssignments} | member: ${memberAssignments} | global: ${globalTotal}`
     );
 
     // ------------------------------
@@ -149,7 +159,11 @@ export default async function handler(req, res) {
       assignmentIndex: nextIndex,
       activeMembers: activeMembers.length,
       totalMembers: team.members.length,
-      totalAssignments,
+      stats: {
+        memberAssignments,      // New: This member's total
+        teamAssignments: totalAssignments,  // Team total
+        globalAssignments: globalTotal      // Global total
+      },
       timestamp: new Date().toISOString()
     });
 

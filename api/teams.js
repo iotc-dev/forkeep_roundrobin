@@ -1,5 +1,5 @@
 import { redis } from '../lib/redis.js';
-import { TEAMS } from '../lib/teams-config.js';  // ← IMPORT SHARED CONFIG
+import { TEAMS } from '../lib/teams-config.js';
 
 
 export default async function handler(req, res) {
@@ -13,6 +13,11 @@ export default async function handler(req, res) {
 
   try {
     const teamsData = {};
+    let globalTotal = 0;
+
+    // Get global total
+    const globalCount = await redis.get('total-count:global');
+    globalTotal = Number(globalCount) || 0;
 
     // ==============================
     // PROCESS EACH TEAM
@@ -55,10 +60,30 @@ export default async function handler(req, res) {
         }
       }
 
+      // ==============================
+      // GET MEMBER STATISTICS (NEW!)
+      // ==============================
+      const membersWithStats = await Promise.all(
+        teamConfig.members.map(async (member) => {
+          const memberCountKey = `member-count:${teamKey}:${member.id}`;
+          const memberCount = await redis.get(memberCountKey);
+          
+          return {
+            id: member.id,
+            name: member.name,
+            active: member.active,
+            assignedLeads: Number(memberCount) || 0,
+            percentage: totalAssignments > 0 
+              ? ((Number(memberCount) || 0) / totalAssignments * 100).toFixed(1)
+              : '0.0'
+          };
+        })
+      );
+
       // Build response object
       teamsData[teamKey] = {
         name: teamConfig.name,
-        members: teamConfig.members,
+        members: membersWithStats,  // Now includes statistics
         activeMembers: activeMembers.length,
         totalMembers: teamConfig.members.length,
         lastAssigned: lastAssignedMember?.name || null,
@@ -74,6 +99,10 @@ export default async function handler(req, res) {
     // ==============================
     return res.status(200).json({
       teams: teamsData,
+      globalStats: {
+        totalAssignments: globalTotal,
+        totalTeams: Object.keys(TEAMS).length
+      },
       timestamp: new Date().toISOString()
     });
 
