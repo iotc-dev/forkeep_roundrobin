@@ -1,20 +1,7 @@
 import { Client } from '@hubspot/api-client';
 import { redis } from '../lib/redis.js';
+import { TEAMS } from '../lib/teams-config.js';  // ← IMPORT SHARED CONFIG
 
-
-// ==============================
-// TEAM CONFIGURATION
-// ==============================
-const TEAMS = {
-  'sales-team': {
-    name: 'Sales Team',
-    members: [
-      { id: '77614604', name: 'Josiah Dalisay (Main)', active: true },
-      { id: '75746033', name: 'Josiah Dalisay (Alt)', active: true },
-      { id: '361908743', name: 'Dev Account', active: true }
-    ]
-  }
-};
 
 // ==============================
 // HUBSPOT CLIENT
@@ -167,7 +154,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('❌ Assignment failed:', error);
+    console.error('✗ Assignment failed:', error);
 
     return res.status(500).json({
       error: 'Internal server error',

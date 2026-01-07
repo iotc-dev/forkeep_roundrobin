@@ -1,30 +1,6 @@
 import { redis } from '../lib/redis.js';
+import { TEAMS } from '../lib/teams-config.js';  // ← IMPORT SHARED CONFIG
 
-
-// ==============================
-// TEAM CONFIGURATION
-// (must match assign.js)
-// ==============================
-const TEAMS = {
-  '400': {
-    name: '900',
-    members: [
-      { id: '77614604', name: 'Josiah Dalisay (Main)', active: true },
-      { id: '75746033', name: 'Josiah Dalisay (Alt)', active: true },
-      { id: '361909438', name: 'Sales1', active: true },
-      { id: '361908743', name: 'Dev Account', active: true }
-    ]
-  },
-  '900': {
-    name: '900',
-    members: [
-      { id: '77614604', name: 'Josiah Dalisay (Main)', active: true },
-      { id: '75746033', name: 'Josiah Dalisay (Alt)', active: false },
-      { id: '361909438', name: 'Sales1', active: true },
-      { id: '361908743', name: 'Dev Account', active: true }
-    ]
-  }
-};
 
 export default async function handler(req, res) {
   // Enforce GET
@@ -102,7 +78,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('❌ Teams endpoint failed:', error);
+    console.error('✗ Teams endpoint failed:', error);
 
     return res.status(500).json({
       error: 'Internal server error',
