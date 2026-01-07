@@ -6,8 +6,17 @@ import { redis } from '../lib/redis.js';
 // (must match assign.js)
 // ==============================
 const TEAMS = {
-  'sales-team': {
-    name: 'Sales Team',
+  '400': {
+    name: '900',
+    members: [
+      { id: '77614604', name: 'Josiah Dalisay (Main)', active: true },
+      { id: '75746033', name: 'Josiah Dalisay (Alt)', active: true },
+      { id: '361909438', name: 'Sales1', active: true },
+      { id: '361908743', name: 'Dev Account', active: true }
+    ]
+  },
+  '900': {
+    name: '900',
     members: [
       { id: '77614604', name: 'Josiah Dalisay (Main)', active: true },
       { id: '75746033', name: 'Josiah Dalisay (Alt)', active: true },
