@@ -3,7 +3,7 @@ import { TEAMS } from '../lib/teams-config.js';
 
 
 // ==============================
-// ASSIGNMENT HANDLER WITH FIXED 10 SECOND DELAY
+// ASSIGNMENT HANDLER WITH ATOMIC OPERATIONS
 // ==============================
 export default async function handler(req, res) {
   // Enforce POST
@@ -68,49 +68,54 @@ export default async function handler(req, res) {
     }
 
     // ------------------------------
-    // FIXED 10 SECOND DELAY TO PREVENT RACE CONDITIONS
+    // ATOMIC ROUND-ROBIN WITH LUA SCRIPT
     // ------------------------------
-    // Fixed 10 second delay for absolute maximum safety (99.99% reliability)
-    const fixedDelay = 10000;
-    await new Promise(resolve => setTimeout(resolve, fixedDelay));
     
-    console.log(`[${teamKey}] Fixed delay: ${fixedDelay}ms (preventing race condition)`);
+    // Create list of active member IDs
+    const activeMemberIds = activeMembers.map(m => m.id);
+    
+    // Lua script for atomic get-and-increment
+    const luaScript = `
+      local lastAssignedKey = KEYS[1]
+      local activeMemberIds = cjson.decode(ARGV[1])
+      
+      -- Get last assigned ID
+      local lastAssignedId = redis.call('GET', lastAssignedKey)
+      
+      -- Find next index
+      local nextIndex = 1
+      if lastAssignedId then
+        for i, id in ipairs(activeMemberIds) do
+          if tostring(id) == tostring(lastAssignedId) then
+            nextIndex = (i % #activeMemberIds) + 1
+            break
+          end
+        end
+      end
+      
+      -- Get next member ID
+      local nextMemberId = activeMemberIds[nextIndex]
+      
+      -- Update last assigned atomically
+      redis.call('SET', lastAssignedKey, nextMemberId)
+      
+      -- Return the selected member ID and index
+      return {nextMemberId, nextIndex - 1}
+    `;
 
-    // ------------------------------
-    // REDIS: GET LAST ASSIGNED
-    // ------------------------------
+    // Execute Lua script atomically
     const lastAssignedKey = `last-assigned:${teamKey}`;
-    const lastAssignedId = await redis.get(lastAssignedKey);
+    const result = await redis.eval(
+      luaScript,
+      [lastAssignedKey],
+      [JSON.stringify(activeMemberIds)]
+    );
 
-    console.log(`[${teamKey}] Last assigned: ${lastAssignedId || 'none'}`);
-
-    // ------------------------------
-    // ROUND-ROBIN CALCULATION
-    // ------------------------------
-    let nextIndex = 0;
-
-    if (lastAssignedId) {
-      const lastPosition = activeMembers.findIndex(
-        m => String(m.id) === String(lastAssignedId)
-      );
-
-      if (lastPosition !== -1) {
-        nextIndex = (lastPosition + 1) % activeMembers.length;
-        console.log(
-          `[${teamKey}] Last position ${lastPosition} → Next ${nextIndex}`
-        );
-      } else {
-        console.log(
-          `[${teamKey}] Last assigned not active anymore → restarting`
-        );
-        nextIndex = 0;
-      }
-    }
-
-    const nextOwner = activeMembers[nextIndex];
+    const [selectedMemberId, nextIndex] = result;
+    const nextOwner = activeMembers.find(m => m.id === selectedMemberId);
 
     console.log(
-      `[${teamKey}] ➜ Assigning to ${nextOwner.name} (${nextOwner.id})`
+      `[${teamKey}] ➜ Assigning to ${nextOwner.name} (${nextOwner.id}) - ATOMIC`
     );
 
     // ------------------------------
@@ -142,25 +147,24 @@ export default async function handler(req, res) {
     );
 
     // ------------------------------
-    // REDIS: SAVE STATE & TRACK METRICS
+    // INCREMENT STATISTICS
     // ------------------------------
     
-    // 1. Save who was assigned (for round-robin)
-    await redis.set(lastAssignedKey, nextOwner.id);
-
-    // 2. Increment team total
-    const countKey = `total-count:${teamKey}`;
-    const totalAssignments = await redis.incr(countKey);
-
-    // 3. Increment member count
-    const memberCountKey = `member-count:${teamKey}:${nextOwner.id}`;
-    const memberAssignments = await redis.incr(memberCountKey);
-
-    // 4. Increment global total
-    const globalTotal = await redis.incr('total-count:global');
+    // Use Redis pipeline for atomic increments
+    const pipeline = redis.pipeline();
+    
+    pipeline.incr(`total-count:${teamKey}`);
+    pipeline.incr(`member-count:${teamKey}:${nextOwner.id}`);
+    pipeline.incr('total-count:global');
+    
+    const results = await pipeline.exec();
+    
+    const teamTotal = results[0];
+    const memberTotal = results[1];
+    const globalTotal = results[2];
 
     console.log(
-      `[${teamKey}] ✓ Redis updated | team: ${totalAssignments} | member: ${memberAssignments} | global: ${globalTotal}`
+      `[${teamKey}] ✓ Stats updated | team: ${teamTotal} | member: ${memberTotal} | global: ${globalTotal}`
     );
 
     // ------------------------------
@@ -176,8 +180,8 @@ export default async function handler(req, res) {
       activeMembers: activeMembers.length,
       totalMembers: team.members.length,
       stats: {
-        memberAssignments,
-        teamAssignments: totalAssignments,
+        memberAssignments: memberTotal,
+        teamAssignments: teamTotal,
         globalAssignments: globalTotal
       },
       timestamp: new Date().toISOString()
