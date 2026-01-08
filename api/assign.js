@@ -3,7 +3,7 @@ import { TEAMS } from '../lib/teams-config.js';
 
 
 // ==============================
-// ASSIGNMENT HANDLER
+// ASSIGNMENT HANDLER WITH SAFE DELAY
 // ==============================
 export default async function handler(req, res) {
   // Enforce POST
@@ -66,6 +66,15 @@ export default async function handler(req, res) {
         hint: 'Set at least one member to active: true'
       });
     }
+
+    // ------------------------------
+    // SAFE DELAY TO PREVENT RACE CONDITIONS
+    // ------------------------------
+    // Random delay between 1000-2000ms (1-2 seconds) for maximum safety
+    const randomDelay = 1000 + Math.floor(Math.random() * 1000);
+    await new Promise(resolve => setTimeout(resolve, randomDelay));
+    
+    console.log(`[${teamKey}] Safe delay: ${randomDelay}ms (preventing race condition)`);
 
     // ------------------------------
     // REDIS: GET LAST ASSIGNED
