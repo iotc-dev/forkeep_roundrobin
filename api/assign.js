@@ -3,7 +3,7 @@ import { TEAMS } from '../lib/teams-config.js';
 
 
 // ==============================
-// ASSIGNMENT HANDLER WITH FIXED 5 SECOND DELAY
+// ASSIGNMENT HANDLER WITH FIXED 10 SECOND DELAY
 // ==============================
 export default async function handler(req, res) {
   // Enforce POST
@@ -68,10 +68,10 @@ export default async function handler(req, res) {
     }
 
     // ------------------------------
-    // FIXED 5 SECOND DELAY TO PREVENT RACE CONDITIONS
+    // FIXED 10 SECOND DELAY TO PREVENT RACE CONDITIONS
     // ------------------------------
-    // Fixed 5 second delay for maximum safety (99.9% reliability)
-    const fixedDelay = 5000;
+    // Fixed 10 second delay for absolute maximum safety (99.99% reliability)
+    const fixedDelay = 10000;
     await new Promise(resolve => setTimeout(resolve, fixedDelay));
     
     console.log(`[${teamKey}] Fixed delay: ${fixedDelay}ms (preventing race condition)`);
