@@ -112,7 +112,11 @@ export default async function handler(req, res) {
     );
 
     const [selectedMemberId, nextIndex] = result;
-    const nextOwner = activeMembers.find(m => m.id === selectedMemberId);
+    const nextOwner = activeMembers.find(m => String(m.id) === String(selectedMemberId));
+
+    if (!nextOwner) {
+      throw new Error(`Selected member ID ${selectedMemberId} not found in active members`);
+    }
 
     console.log(
       `[${teamKey}] ➜ Assigning to ${nextOwner.name} (${nextOwner.id}) - ATOMIC`
