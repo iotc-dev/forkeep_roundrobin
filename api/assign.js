@@ -3,7 +3,7 @@ import { TEAMS } from '../lib/teams-config.js';
 
 
 // ==============================
-// ASSIGNMENT HANDLER WITH SAFE DELAY
+// ASSIGNMENT HANDLER WITH FIXED 5 SECOND DELAY
 // ==============================
 export default async function handler(req, res) {
   // Enforce POST
@@ -68,13 +68,13 @@ export default async function handler(req, res) {
     }
 
     // ------------------------------
-    // SAFE DELAY TO PREVENT RACE CONDITIONS
+    // FIXED 5 SECOND DELAY TO PREVENT RACE CONDITIONS
     // ------------------------------
-    // Random delay between 1000-2000ms (1-2 seconds) for maximum safety
-    const randomDelay = 1000 + Math.floor(Math.random() * 1000);
-    await new Promise(resolve => setTimeout(resolve, randomDelay));
+    // Fixed 5 second delay for maximum safety (99.9% reliability)
+    const fixedDelay = 5000;
+    await new Promise(resolve => setTimeout(resolve, fixedDelay));
     
-    console.log(`[${teamKey}] Safe delay: ${randomDelay}ms (preventing race condition)`);
+    console.log(`[${teamKey}] Fixed delay: ${fixedDelay}ms (preventing race condition)`);
 
     // ------------------------------
     // REDIS: GET LAST ASSIGNED
