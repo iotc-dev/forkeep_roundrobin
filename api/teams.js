@@ -3,6 +3,18 @@ import { TEAMS } from '../lib/teams-config.js';
 
 
 export default async function handler(req, res) {
+  // ==============================
+  // CORS HEADERS
+  // ==============================
+  res.setHeader('Access-Control-Allow-Origin', '*'); // Change to 'https://icingonthecake.com.au' to restrict
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   // Enforce GET
   if (req.method !== 'GET') {
     return res.status(405).json({
