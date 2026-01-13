@@ -51,6 +51,49 @@ export default async function handler(req, res) {
     }
 
     // ------------------------------
+    // CHECK EXISTING OWNER - EARLY EXIT
+    // ------------------------------
+    const checkOwnerResponse = await fetch(
+      `https://api.hubapi.com/crm/v3/objects/contacts/${contactId}?properties=hubspot_owner_id`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${process.env.HUBSPOT_ACCESS_TOKEN}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (!checkOwnerResponse.ok) {
+      const errorText = await checkOwnerResponse.text();
+      throw new Error(`HubSpot API error (${checkOwnerResponse.status}): ${errorText}`);
+    }
+
+    const contactData = await checkOwnerResponse.json();
+    const existingOwnerId = contactData.properties?.hubspot_owner_id;
+
+    if (existingOwnerId) {
+      console.log(
+        `[${teamKey}] ⚠️  Contact ${contactId} already has owner ${existingOwnerId} - skipping (no Redis update)`
+      );
+
+      // Return immediately - don't touch Redis at all
+      return res.status(200).json({
+        success: true,
+        skipped: true,
+        contactId,
+        team: team.name,
+        message: 'Contact already has an owner - assignment skipped',
+        existingOwnerId,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    console.log(
+      `[${teamKey}] ✓ Contact ${contactId} is new - proceeding with assignment`
+    );
+
+    // ------------------------------
     // ACTIVE MEMBERS
     // ------------------------------
     const activeMembers = team.members.filter(m => m.active === true);
