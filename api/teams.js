@@ -2,11 +2,23 @@ import { redis } from '../lib/redis.js';
 import { TEAMS } from '../lib/teams-config.js';
 
 
+// Helper: Get member active status from Redis (falls back to config default)
+async function isActiveMember(teamKey, member) {
+  const key = `member-active:${teamKey}:${member.id}`;
+  const value = await redis.get(key);
+  
+  if (value !== null) {
+    return value === 'true';
+  }
+  return member.defaultActive;
+}
+
+
 export default async function handler(req, res) {
   // ==============================
   // CORS HEADERS
   // ==============================
-  res.setHeader('Access-Control-Allow-Origin', '*'); // Change to 'https://icingonthecake.com.au' to restrict
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -35,7 +47,24 @@ export default async function handler(req, res) {
     // PROCESS EACH TEAM
     // ==============================
     for (const [teamKey, teamConfig] of Object.entries(TEAMS)) {
-      const activeMembers = teamConfig.members.filter(m => m.active === true);
+      
+      // Get active status and stats for all members
+      const membersWithStats = await Promise.all(
+        teamConfig.members.map(async (member) => {
+          const isActive = await isActiveMember(teamKey, member);
+          const memberCountKey = `member-count:${teamKey}:${member.id}`;
+          const memberCount = await redis.get(memberCountKey);
+          
+          return {
+            id: member.id,
+            name: member.name,
+            active: isActive,
+            assignedLeads: Number(memberCount) || 0
+          };
+        })
+      );
+
+      const activeMembers = membersWithStats.filter(m => m.active === true);
 
       // Redis keys
       const lastAssignedKey = `last-assigned:${teamKey}`;
@@ -72,30 +101,18 @@ export default async function handler(req, res) {
         }
       }
 
-      // ==============================
-      // GET MEMBER STATISTICS (NEW!)
-      // ==============================
-      const membersWithStats = await Promise.all(
-        teamConfig.members.map(async (member) => {
-          const memberCountKey = `member-count:${teamKey}:${member.id}`;
-          const memberCount = await redis.get(memberCountKey);
-          
-          return {
-            id: member.id,
-            name: member.name,
-            active: member.active,
-            assignedLeads: Number(memberCount) || 0,
-            percentage: totalAssignments > 0 
-              ? ((Number(memberCount) || 0) / totalAssignments * 100).toFixed(1)
-              : '0.0'
-          };
-        })
-      );
+      // Add percentage to members
+      const membersWithPercentage = membersWithStats.map(member => ({
+        ...member,
+        percentage: totalAssignments > 0 
+          ? ((member.assignedLeads) / totalAssignments * 100).toFixed(1)
+          : '0.0'
+      }));
 
       // Build response object
       teamsData[teamKey] = {
         name: teamConfig.name,
-        members: membersWithStats,  // Now includes statistics
+        members: membersWithPercentage,
         activeMembers: activeMembers.length,
         totalMembers: teamConfig.members.length,
         lastAssigned: lastAssignedMember?.name || null,

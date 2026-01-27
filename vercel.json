@@ -5,6 +5,12 @@
       "maxDuration": 60
     }
   },
+  "routes": [
+    {
+      "src": "/admin",
+      "dest": "/public/admin.html"
+    }
+  ],
   "env": {
     "NODE_ENV": "production"
   }
