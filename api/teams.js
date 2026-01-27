@@ -7,6 +7,8 @@ async function isActiveMember(teamKey, member) {
   const key = `member-active:${teamKey}:${member.id}`;
   const value = await redis.get(key);
   
+  console.log(`[TEAMS] Key: ${key} | Value: ${value} | Type: ${typeof value}`);
+  
   if (value !== null) {
     return value === 'true';
   }
