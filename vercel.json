@@ -5,10 +5,10 @@
       "maxDuration": 60
     }
   },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/admin",
-      "dest": "/public/admin.html"
+      "source": "/admin",
+      "destination": "/admin.html"
     }
   ],
   "env": {
