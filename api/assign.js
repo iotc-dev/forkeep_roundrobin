@@ -8,7 +8,7 @@ async function isActiveMember(teamKey, member) {
   const value = await redis.get(key);
   
   if (value !== null) {
-    return value === 'true';
+    return value === true || value === 'true';  // Handle both boolean and string
   }
   return member.defaultActive;
 }

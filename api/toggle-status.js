@@ -28,7 +28,7 @@ export default async function handler(req, res) {
           
           // If no value in Redis, use default from config
           if (value !== null) {
-            states[`${teamKey}-${member.id}`] = value === 'true';
+            states[`${teamKey}-${member.id}`] = value === true || value === 'true';  // Handle both boolean and string
           } else {
             states[`${teamKey}-${member.id}`] = member.defaultActive;
           }
