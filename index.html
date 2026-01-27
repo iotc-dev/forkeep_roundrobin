@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>For Keeps Lead Assignment</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #fafafa;
+      --card-bg: #ffffff;
+      --text: #1a1a2e;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --green: #10b981;
+      --green-light: #d1fae5;
+      --red: #ef4444;
+      --red-light: #fee2e2;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container { max-width: 600px; margin: 0 auto; }
+
+    header { text-align: center; margin-bottom: 2rem; }
+    .logo { height: 60px; margin-bottom: 1rem; }
+    h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .subtitle { color: var(--text-muted); font-size: 0.95rem; }
+
+    .loading-msg {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-muted);
+    }
+
+    .team-section {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+
+    .team-header {
+      background: #f9fafb;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+    }
+
+    .members-list { padding: 0.5rem; }
+
+    .member-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.875rem 1rem;
+      border-radius: 10px;
+      transition: background 0.2s;
+    }
+
+    .member-row:hover { background: #f9fafb; }
+
+    .member-info { display: flex; align-items: center; gap: 0.75rem; }
+
+    .avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+
+    .avatar.active { background: var(--green-light); color: var(--green); }
+    .avatar.inactive { background: var(--red-light); color: var(--red); }
+
+    .member-name { font-weight: 500; }
+    .member-row.inactive .member-name { color: var(--text-muted); }
+
+    .toggle-area { display: flex; align-items: center; gap: 0.6rem; }
+
+    .status-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      font-weight: 600;
+      min-width: 52px;
+      text-align: right;
+    }
+
+    .status-label.active { color: var(--green); }
+    .status-label.inactive { color: var(--red); }
+
+    .toggle { position: relative; width: 48px; height: 26px; cursor: pointer; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+
+    .slider {
+      position: absolute;
+      inset: 0;
+      background: #e5e7eb;
+      border-radius: 26px;
+      transition: 0.3s;
+    }
+
+    .slider:before {
+      content: "";
+      position: absolute;
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      bottom: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: 0.3s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    .toggle input:checked + .slider { background: var(--green); }
+    .toggle input:checked + .slider:before { transform: translateX(22px); }
+
+    .toggle.loading .slider:before { animation: pulse 0.8s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    .toast-container {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+    }
+
+    .toast {
+      background: var(--text);
+      color: white;
+      padding: 0.875rem 1.25rem;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      animation: slideUp 0.3s ease;
+    }
+
+    .toast.success { background: var(--green); }
+    .toast.error { background: var(--red); }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <img src="/forkeeps_roundrobin.png" alt="For Keeps" class="logo">
+      <h1>For Keeps Lead Assignment</h1>
+      <p class="subtitle">Toggle members active or inactive</p>
+    </header>
+
+    <div id="teams-container">
+      <div class="loading-msg">Loading teams...</div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script>
+    // ============================================
+    // API CONFIG
+    // ============================================
+    const API_BASE = '';
+
+    // ============================================
+    // STATE
+    // ============================================
+    let teamsData = {};
+
+    // ============================================
+    // INIT
+    // ============================================
+    document.addEventListener('DOMContentLoaded', loadTeams);
+
+    // ============================================
+    // LOAD TEAMS FROM API
+    // ============================================
+    async function loadTeams() {
+      try {
+        const response = await fetch(`${API_BASE}/api/teams`);
+        const data = await response.json();
+        
+        teamsData = data.teams;
+        renderTeams(data.teams);
+      } catch (error) {
+        console.error('Failed to load teams:', error);
+        document.getElementById('teams-container').innerHTML = 
+          '<div class="loading-msg">Failed to load teams. Refresh to retry.</div>';
+      }
+    }
+
+    // ============================================
+    // RENDER
+    // ============================================
+    function renderTeams(teams) {
+      const container = document.getElementById('teams-container');
+      container.innerHTML = '';
+
+      for (const [teamKey, team] of Object.entries(teams)) {
+        const section = document.createElement('div');
+        section.className = 'team-section';
+        section.innerHTML = `
+          <div class="team-header">${team.name}</div>
+          <div class="members-list">
+            ${team.members.map(m => renderMember(teamKey, m)).join('')}
+          </div>
+        `;
+        container.appendChild(section);
+      }
+    }
+
+    function renderMember(teamKey, member) {
+      const initials = member.name.split(' ').map(n => n[0]).join('');
+      const statusClass = member.active ? 'active' : 'inactive';
+      
+      return `
+        <div class="member-row ${statusClass}" id="row-${teamKey}-${member.id}">
+          <div class="member-info">
+            <div class="avatar ${statusClass}">${initials}</div>
+            <span class="member-name">${member.name}</span>
+          </div>
+          <div class="toggle-area">
+            <span class="status-label ${statusClass}">${member.active ? 'Active' : 'Inactive'}</span>
+            <label class="toggle" id="toggle-${teamKey}-${member.id}">
+              <input type="checkbox" ${member.active ? 'checked' : ''} 
+                onchange="handleToggle('${teamKey}', '${member.id}', '${member.name}', this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      `;
+    }
+
+    // ============================================
+    // TOGGLE HANDLER
+    // ============================================
+    async function handleToggle(teamKey, memberId, memberName, isActive) {
+      const toggle = document.getElementById(`toggle-${teamKey}-${memberId}`);
+      toggle.classList.add('loading');
+
+      try {
+        const response = await fetch(`${API_BASE}/api/toggle-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            teamKey,
+            memberId,
+            active: isActive
+          })
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to save');
+        }
+
+        // Update local state
+        if (teamsData[teamKey]) {
+          const member = teamsData[teamKey].members.find(m => m.id === memberId);
+          if (member) member.active = isActive;
+        }
+
+        // Update UI
+        updateRowUI(teamKey, memberId, isActive);
+
+        showToast(`${memberName} → ${isActive ? 'Active' : 'Inactive'}`, 'success');
+
+      } catch (error) {
+        console.error('Toggle failed:', error);
+        showToast(`Failed: ${error.message}`, 'error');
+        
+        // Revert checkbox
+        const checkbox = document.querySelector(`#toggle-${teamKey}-${memberId} input`);
+        if (checkbox) checkbox.checked = !isActive;
+      }
+
+      toggle.classList.remove('loading');
+    }
+
+    function updateRowUI(teamKey, memberId, isActive) {
+      const row = document.getElementById(`row-${teamKey}-${memberId}`);
+      const avatar = row.querySelector('.avatar');
+      const label = row.querySelector('.status-label');
+
+      row.className = `member-row ${isActive ? 'active' : 'inactive'}`;
+      avatar.className = `avatar ${isActive ? 'active' : 'inactive'}`;
+      label.className = `status-label ${isActive ? 'active' : 'inactive'}`;
+      label.textContent = isActive ? 'Active' : 'Inactive';
+    }
+
+    // ============================================
+    // TOAST
+    // ============================================
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      
+      container.innerHTML = '';
+      container.appendChild(toast);
+
+      setTimeout(() => toast.remove(), 4000);
+    }
+  </script>
+</body>
+</html>

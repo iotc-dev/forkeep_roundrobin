@@ -2,6 +2,18 @@ import { redis } from '../lib/redis.js';
 import { TEAMS } from '../lib/teams-config.js';
 
 
+// Helper: Get member active status from Redis (falls back to config default)
+async function isActiveMember(teamKey, member) {
+  const key = `member-active:${teamKey}:${member.id}`;
+  const value = await redis.get(key);
+  
+  if (value !== null) {
+    return value === 'true';
+  }
+  return member.defaultActive;
+}
+
+
 // ==============================
 // ASSIGNMENT HANDLER WITH ATOMIC OPERATIONS
 // ==============================
@@ -94,9 +106,15 @@ export default async function handler(req, res) {
     );
 
     // ------------------------------
-    // ACTIVE MEMBERS
+    // GET ACTIVE MEMBERS FROM REDIS
     // ------------------------------
-    const activeMembers = team.members.filter(m => m.active === true);
+    const activeMembers = [];
+    for (const member of team.members) {
+      const isActive = await isActiveMember(teamKey, member);
+      if (isActive) {
+        activeMembers.push(member);
+      }
+    }
 
     console.log(
       `[${teamKey}] ${team.members.length} total | ${activeMembers.length} active`
@@ -106,7 +124,7 @@ export default async function handler(req, res) {
       return res.status(400).json({
         error: 'No active members',
         message: `Team '${teamKey}' has no active members`,
-        hint: 'Set at least one member to active: true'
+        hint: 'Use the admin dashboard to activate at least one member'
       });
     }
 
